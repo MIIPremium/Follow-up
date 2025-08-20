@@ -39,6 +39,11 @@
     .tab.active{background-color:#fff;border-bottom:1px solid #fff;margin-bottom:-1px}
     @media (max-width:768px){nav ul{flex-direction:column;align-items:center}nav ul li{margin:5px 0}.tabs{flex-wrap:wrap}.tab{margin-bottom:5px}}
     .hint{font-size:.9rem;color:#555;margin:.5rem 0}
+    .banner{padding:10px;border-radius:6px;margin:10px 20px}
+    .banner.warn{background:#fff3cd;border:1px solid #ffe69c;color:#664d03}
+    .banner.error{background:#f8d7da;border:1px solid #f5c2c7;color:#842029}
+    details.debug{margin:20px}
+    details.debug pre{background:#0f172a;color:#e2e8f0;padding:14px;border-radius:8px;overflow:auto}
   </style>
 </head>
 <body>
@@ -46,6 +51,8 @@
     <h1>نظام متابعة حفظ المتون - الكلاود (Google Firestore)</h1>
     <p class="hint">📌 هذه النسخة تحفظ وتعرض البيانات للجميع عبر قاعدة بيانات سحابية. تأكد من ضبط <strong>firebaseConfig</strong> و<em>Security Rules</em>.</p>
   </header>
+
+  <div id="envBanner" class="banner" style="display:none"></div>
 
   <nav>
     <ul>
@@ -116,7 +123,7 @@
         <div class="tab" data-stage="4" onclick="showTextTab('stage4', event)">المرحلة الرابعة</div>
       </div>
 
-      <!-- قالب مرحلة عام باستخدام data-stage="1..4" -->
+      <!-- المرحلة 1 -->
       <div id="stage1Texts" class="text-tab" data-stage="1">
         <div class="card">
           <div class="card-header">إضافة متن جديد للمرحلة الأولى</div>
@@ -147,7 +154,7 @@
         </div>
       </div>
 
-      <!-- سننسخ نفس البنية للمراحل الأخرى -->
+      <!-- المرحلة 2 -->
       <div id="stage2Texts" class="text-tab" data-stage="2" style="display:none">
         <div class="card">
           <div class="card-header">إضافة متن جديد للمرحلة الثانية</div>
@@ -178,6 +185,7 @@
         </div>
       </div>
 
+      <!-- المرحلة 3 -->
       <div id="stage3Texts" class="text-tab" data-stage="3" style="display:none">
         <div class="card">
           <div class="card-header">إضافة متن جديد للمرحلة الثالثة</div>
@@ -208,6 +216,7 @@
         </div>
       </div>
 
+      <!-- المرحلة 4 -->
       <div id="stage4Texts" class="text-tab" data-stage="4" style="display:none">
         <div class="card">
           <div class="card-header">إضافة متن جديد للمرحلة الرابعة</div>
@@ -336,14 +345,15 @@
 
   <!-- Firebase + منطق التطبيق -->
   <script type="module">
-    /**
-     * 1) ألصِق إعدادات Firebase لمشروعك هنا (من لوحة Firebase > Project Settings > SDK setup & config)
-     * ⚠️ لا تشارك المفاتيح الحساسة علنًا. يُنصح بضبط قواعد الأمان.
-     */
+    // ===== أدوات عرض رسائل البيئة/الأخطاء =====
+    const banner = document.getElementById('envBanner');
+    function showBanner(msg, type='warn'){ banner.textContent = msg; banner.className = `banner ${type}`; banner.style.display='block'; }
+
+    // ===== إعدادات Firebase (حدّثها من لوحة Firebase) =====
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
     import {
-      getFirestore, collection, addDoc, getDocs, onSnapshot,
-      deleteDoc, doc, query, where, orderBy, getDoc
+      getFirestore, collection, addDoc, onSnapshot,
+      deleteDoc, doc
     } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -355,36 +365,67 @@
       appId: "YOUR_APP_ID"
     };
 
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
+    const REQUIRED_KEYS = ["apiKey","authDomain","projectId","storageBucket","messagingSenderId","appId"];
+    function isValidConfig(cfg){
+      if(!cfg) return false;
+      for(const k of REQUIRED_KEYS){
+        if(!(k in cfg)) return false;
+        const v = String(cfg[k]||'');
+        if(!v || v.startsWith('YOUR_')) return false;
+      }
+      return true;
+    }
 
-    // المراجع
-    const studentsCol = collection(db, 'students');
-    const textsCol = collection(db, 'texts'); // سنخزن: { name, total, stage }
-    const progressCol = collection(db, 'progress'); // { studentId, stage, textId, amount, remaining, date }
+    let app = null, db = null, dbReady = false;
+    try{
+      if(isValidConfig(firebaseConfig)){
+        app = initializeApp(firebaseConfig);
+        db = getFirestore(app);
+        dbReady = true;
+      }else{
+        showBanner('⚠️ Firebase لم يُضبط بعد. حدّث قيم firebaseConfig قبل الاستخدام (تم تعطيل الحفظ مؤقتًا).', 'warn');
+      }
+    }catch(err){
+      console.error('[Firebase Init Error]', err);
+      showBanner('خطأ في تهيئة Firebase: '+ (err?.message||err), 'error');
+    }
 
-    // حالة واجهة المستخدم
+    // ===== مراجع المجموعات عند توفّر القاعدة =====
+    const studentsCol = dbReady ? collection(db, 'students') : null;
+    const textsCol    = dbReady ? collection(db, 'texts')    : null; // { name, total, stage }
+    const progressCol = dbReady ? collection(db, 'progress') : null; // { studentId, stage, textId, amount, remaining, date }
+
+    // ===== حالة واجهة المستخدم =====
     const studentsState = new Map(); // id -> data
-    const textsState = new Map(); // id -> data
+    const textsState    = new Map(); // id -> data
 
-    // ====== أدوات عامة للواجهة ======
+    // ===== أدوات عامة للواجهة =====
     function showSection(sectionId){
       document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
-      document.getElementById(sectionId).classList.add('active');
+      const el = document.getElementById(sectionId);
+      if(el) el.classList.add('active');
       if(sectionId==='students'){ renderStudentsTable(); }
-      if(sectionId==='texts'){ /* الجداول تتحدث آليًا عبر onSnapshot */ }
+      if(sectionId==='texts'){ /* الجداول تتحدّث عبر onSnapshot */ }
       if(sectionId==='progress'){ loadStudentsDropdown(); }
     }
 
     function showTextTab(stageId, ev){
       document.querySelectorAll('.text-tab').forEach(tab=>tab.style.display='none');
-      document.getElementById(stageId+'Texts').style.display='block';
+      const wrap = document.getElementById(stageId+'Texts');
+      if(wrap) wrap.style.display='block';
       document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-      if(ev) ev.target.classList.add('active');
+      // اجعل التبويب المقابل نشطًا حتى لو لم يُمرَّر حدث
+      const stageNum = String(stageId).replace('stage','');
+      const tabEl = ev?.target ?? document.querySelector(`.tab[data-stage="${stageNum}"]`);
+      tabEl?.classList.add('active');
       renderTextsTables();
     }
 
-    // ====== الطلاب ======
+    // اجعل الدوال متاحة للمعالجات داخل HTML (حلّ لخطأ ReferenceError)
+    window.showSection = showSection;
+    window.showTextTab = showTextTab;
+
+    // ===== الطلاب =====
     const addStudentForm = document.getElementById('addStudentForm');
     addStudentForm.addEventListener('submit', async (e)=>{
       e.preventDefault();
@@ -395,13 +436,14 @@
         level: document.getElementById('studentLevel').value
       };
       if(!student.name) return alert('الاسم مطلوب');
-      await addDoc(studentsCol, student);
-      addStudentForm.reset();
-      alert('تم إضافة الطالب بنجاح!');
+      if(!dbReady) return alert('لم يتم إعداد Firebase بعد. حدّث firebaseConfig أولًا.');
+      try{ await addDoc(studentsCol, student); addStudentForm.reset(); alert('تم إضافة الطالب بنجاح!'); }
+      catch(err){ console.error('Add student error', err); alert('تعذّر إضافة الطالب: '+(err?.message||err)); }
     });
 
     function renderStudentsTable(){
       const tbody = document.querySelector('#studentsTable tbody');
+      if(!tbody) return;
       tbody.innerHTML = '';
       [...studentsState.entries()].forEach(([id, student])=>{
         const tr = document.createElement('tr');
@@ -417,22 +459,27 @@
         btn.addEventListener('click', async ()=>{
           const id = btn.getAttribute('data-del-student');
           if(confirm('هل أنت متأكد من حذف هذا الطالب؟')){
-            await deleteDoc(doc(db, 'students', id));
+            if(!dbReady) return alert('لا يمكن الحذف بدون إعداد Firebase.');
+            try{ await deleteDoc(doc(db, 'students', id)); } catch(err){ console.error('Delete student error', err); alert('تعذّر الحذف: '+(err?.message||err)); }
           }
         });
       });
     }
 
-    // متابعة حيّة لقائمة الطلاب
-    onSnapshot(studentsCol, (snap)=>{
-      studentsState.clear();
-      snap.forEach(d=>studentsState.set(d.id, d.data()));
-      renderStudentsTable();
-      loadStudentsDropdown();
-    });
+    // متابعة حيّة لقائمة الطلاب (عند توفر القاعدة)
+    if(dbReady){
+      onSnapshot(studentsCol, (snap)=>{
+        studentsState.clear();
+        snap.forEach(d=>studentsState.set(d.id, d.data()));
+        renderStudentsTable();
+        loadStudentsDropdown();
+      }, (err)=>{
+        console.error('students snapshot error', err);
+        showBanner('حدث خطأ في الاستماع لبيانات الطلاب: '+(err?.message||err), 'error');
+      });
+    }
 
-    // ====== المتون ======
-    // نماذج الإضافة لكل مرحلة
+    // ===== المتون =====
     document.querySelectorAll('.addTextForm').forEach(form=>{
       form.addEventListener('submit', async (e)=>{
         e.preventDefault();
@@ -440,19 +487,18 @@
         const name = form.querySelector('.textName').value.trim();
         const total = parseInt(form.querySelector('.textTotal').value, 10);
         if(!name || !total || total<1) return alert('أدخل اسم المتن وعددًا صحيحًا');
-        await addDoc(textsCol, { name, total, stage });
-        form.reset();
-        alert('تم إضافة المتن بنجاح!');
+        if(!dbReady) return alert('لم يتم إعداد Firebase بعد. حدّث firebaseConfig أولًا.');
+        try{ await addDoc(textsCol, { name, total, stage }); form.reset(); alert('تم إضافة المتن بنجاح!'); }
+        catch(err){ console.error('Add text error', err); alert('تعذّر إضافة المتن: '+(err?.message||err)); }
       });
     });
 
     function renderTextsTables(){
-      // امسح الجداول الأربعة ثم املأ حسب الحالة
       for(let s=1; s<=4; s++){
         const tbody = document.querySelector(`#stage${s}TextsTable tbody`);
         if(!tbody) continue;
         tbody.innerHTML='';
-        [...textsState.entries()] // [id, data]
+        [...textsState.entries()]
           .filter(([_, t])=> String(t.stage)===String(s))
           .forEach(([id, t])=>{
             const tr = document.createElement('tr');
@@ -466,23 +512,30 @@
           btn.addEventListener('click', async ()=>{
             const id = btn.getAttribute('data-del-text');
             if(confirm('هل أنت متأكد من حذف هذا المتن؟')){
-              await deleteDoc(doc(db,'texts',id));
+              if(!dbReady) return alert('لا يمكن الحذف بدون إعداد Firebase.');
+              try{ await deleteDoc(doc(db,'texts',id)); } catch(err){ console.error('Delete text error', err); alert('تعذّر الحذف: '+(err?.message||err)); }
             }
           });
         });
       }
     }
 
-    // متابعة حيّة للمتون
-    onSnapshot(textsCol, (snap)=>{
-      textsState.clear();
-      snap.forEach(d=>textsState.set(d.id, d.data()));
-      renderTextsTables();
-      // حدّث قائمة المتون في نموذج التقدم إن كانت مرحلة مختارة
-      populateTextsDropdown();
-    });
+    if(dbReady){
+      onSnapshot(textsCol, (snap)=>{
+        textsState.clear();
+        snap.forEach(d=>textsState.set(d.id, d.data()));
+        renderTextsTables();
+        populateTextsDropdown();
+      }, (err)=>{
+        console.error('texts snapshot error', err);
+        showBanner('حدث خطأ في الاستماع لبيانات المتون: '+(err?.message||err), 'error');
+      });
+    }
 
-    // ====== تسجيل التقدم ======
+    // ===== تسجيل التقدم =====
+    const progressStageSel = document.getElementById('progressStage');
+    const progressTextSel  = document.getElementById('progressText');
+
     function loadStudentsDropdown(){
       const select = document.getElementById('progressStudent');
       if(!select) return;
@@ -493,13 +546,9 @@
         opt.value = id; opt.textContent = s.name;
         select.appendChild(opt);
       });
-      // احتفظ بالاختيار إن أمكن
       if(current) select.value = current;
       populateTextsDropdown();
     }
-
-    const progressStageSel = document.getElementById('progressStage');
-    const progressTextSel = document.getElementById('progressText');
 
     function populateTextsDropdown(){
       if(!progressStageSel || !progressTextSel) return;
@@ -520,35 +569,84 @@
     document.getElementById('recordProgressForm').addEventListener('submit', async (e)=>{
       e.preventDefault();
       const studentId = document.getElementById('progressStudent').value;
-      const stage = document.getElementById('progressStage').value;
-      const textId = document.getElementById('progressText').value;
-      const amount = parseInt(document.getElementById('progressAmount').value, 10);
-      const date = document.getElementById('progressDate').value; // YYYY-MM-DD
+      const stage     = document.getElementById('progressStage').value;
+      const textId    = document.getElementById('progressText').value;
+      const amount    = parseInt(document.getElementById('progressAmount').value, 10);
+      const date      = document.getElementById('progressDate').value; // YYYY-MM-DD
       if(!studentId || !stage || !textId || !amount || !date) return alert('أكمل جميع الحقول');
       const total = parseInt(progressTextSel.selectedOptions[0].dataset.total, 10);
       if(amount>total) return alert('القدر المحفوظ لا يمكن أن يكون أكبر من المجموع الكلي للمتن!');
       const remaining = total - amount;
-      await addDoc(progressCol, { studentId, stage, textId, amount, remaining, date });
-      e.target.reset();
-      alert('تم تسجيل التقدم بنجاح!');
+      if(!dbReady) return alert('لم يتم إعداد Firebase بعد. حدّث firebaseConfig أولًا.');
+      try{ await addDoc(progressCol, { studentId, stage, textId, amount, remaining, date }); e.target.reset(); alert('تم تسجيل التقدم بنجاح!'); }
+      catch(err){ console.error('Add progress error', err); alert('تعذّر تسجيل التقدم: '+(err?.message||err)); }
     });
 
-    // ====== بدء التشغيل ======
+    // ===== بدء التشغيل =====
     document.addEventListener('DOMContentLoaded', ()=>{
       showSection('students');
       showTextTab('stage1');
+      runSelfTests();
     });
+
+    // ===== اختبارات (Test Cases) =====
+    function logTest(ok, name, info=''){
+      const line = `${ok?'✅':'❌'} ${name}${info?(' — '+info):''}`;
+      console[ok?'log':'error'](line);
+      const pre = document.getElementById('testLog');
+      if(pre){ pre.textContent += line + '\n'; }
+    }
+
+    function runSelfTests(){
+      // TC-1: الدوال معرّفة على window
+      logTest(typeof window.showSection==='function', 'TC-1: showSection موجود على window');
+      logTest(typeof window.showTextTab==='function', 'TC-1b: showTextTab موجود على window');
+
+      // TC-2: showSection تُظهر القسم الصحيح
+      showSection('students');
+      const visibleStudents = document.getElementById('students').classList.contains('active');
+      logTest(visibleStudents, 'TC-2: إظهار قسم الطلاب نشِط');
+
+      // TC-3: showTextTab تُفعّل التبويب الصحيح حتى بدون event
+      showTextTab('stage2');
+      const tab2Active = document.querySelector('.tab[data-stage="2"]').classList.contains('active');
+      const stage2Visible = document.getElementById('stage2Texts').style.display==='block';
+      logTest(tab2Active && stage2Visible, 'TC-3: تبديل تبويب المرحلة 2 يعمل');
+
+      // TC-4: فحص صلاحية إعداد Firebase
+      const cfgOk = isValidConfig(firebaseConfig);
+      logTest(cfgOk || !cfgOk, 'TC-4: فحص firebaseConfig (مجرد تقرير)', cfgOk? 'OK':'Placeholder/غير مكتمل');
+
+      // TC-5: populateTextsDropdown يعمل باستخدام بيانات وهمية عندما لا تتوفر قاعدة
+      if(!dbReady){
+        // حقن بيانات وهمية
+        const fakeId = 't1';
+        textsState.set(fakeId, {name:'متن تجريبي', total:10, stage:'1'});
+        document.getElementById('progressStage').value = '1';
+        populateTextsDropdown();
+        const opts = document.querySelectorAll('#progressText option');
+        logTest(opts.length>1, 'TC-5: قائمة المتون تُملأ بدون Firestore', `عدد الخيارات: ${opts.length}`);
+        // تنظيف
+        textsState.delete(fakeId);
+        populateTextsDropdown();
+      }
+    }
   </script>
 
-  <!-- تلميحات أمان Firestore (للتنفيذ من لوحة التحكم):
+  <details class="debug">
+    <summary>Debug & Tests (افتح للاطلاع على نتائج الاختبارات)</summary>
+    <pre id="testLog"></pre>
+  </details>
+
+  <!-- تلميحات أمان Firestore (ضبطها من لوحة التحكم):
   rules_version = '2';
   service cloud.firestore {
     match /databases/{database}/documents {
-      // 👇 للسماح العام للقراءة والكتابة أثناء التطوير فقط (غير آمن للإنتاج)
+      // 👇 للسماح العام أثناء التطوير فقط (غير آمن للإنتاج)
       match /{document=**} {
         allow read, write: if true;
       }
-      // للإنتاج، استخدم مصادقة وتحقق من الملكية والأدوار.
+      // للإنتاج: استخدم مصادقة وتحقق من الأدوار/الملكية.
     }
   }
   -->
