@@ -1,557 +1,556 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>نظام متابعة حفظ المتون - الجامعة</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
-        body {
-            font-family: 'Inter', sans-serif;
-        }
-        .modal {
-            transition: all 0.3s ease-in-out;
-        }
-        .animate-fade-in {
-            animation: fadeIn 0.3s ease-in-out;
-        }
-        .animate-fade-out {
-            animation: fadeOut 0.3s ease-in-out forwards;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: scale(0.95); }
-            to { opacity: 1; transform: scale(1); }
-        }
-        @keyframes fadeOut {
-            from { opacity: 1; transform: scale(1); }
-            to { opacity: 0; transform: scale(0.95); }
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>نظام متابعة حفظ المتون - إصدار الكلاود (Firestore)</title>
+  <style>
+    :root{--primary-color:#3498db;--secondary-color:#2ecc71;--accent-color:#e74c3c;--light-color:#ecf0f1;--dark-color:#2c3e50}
+    *{box-sizing:border-box;margin:0;padding:0;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
+    body{background-color:#f5f7fa;color:#333;line-height:1.6}
+    .container{width:90%;max-width:1200px;margin:0 auto;padding:20px}
+    header{background-color:var(--dark-color);color:#fff;padding:1rem;text-align:center;margin-bottom:2rem;border-radius:5px}
+    nav{background-color:var(--primary-color);padding:1rem;margin-bottom:2rem;border-radius:5px}
+    nav ul{display:flex;justify-content:center;list-style:none}
+    nav ul li{margin:0 15px}
+    nav ul li a{color:#fff;text-decoration:none;font-weight:bold;padding:5px 10px;border-radius:3px;transition:background-color .3s}
+    nav ul li a:hover{background-color:rgba(255,255,255,.2)}
+    .section{background-color:#fff;padding:20px;margin-bottom:20px;border-radius:5px;box-shadow:0 2px 5px rgba(0,0,0,.1);display:none}
+    .section.active{display:block}
+    h2{color:var(--dark-color);margin-bottom:20px;padding-bottom:10px;border-bottom:2px solid var(--light-color)}
+    table{width:100%;border-collapse:collapse;margin-bottom:20px}
+    table,th,td{border:1px solid #ddd}
+    th,td{padding:12px;text-align:center}
+    th{background-color:var(--light-color)}
+    tr:nth-child(even){background-color:#f9f9f9}
+    .form-group{margin-bottom:15px}
+    label{display:block;margin-bottom:5px;font-weight:bold}
+    input,select,textarea{width:100%;padding:10px;border:1px solid #ddd;border-radius:4px}
+    button{background-color:var(--primary-color);color:#fff;border:none;padding:10px 15px;border-radius:4px;cursor:pointer;font-weight:bold}
+    button:hover{background-color:#2980b9}
+    .btn-danger{background-color:var(--accent-color)}
+    .btn-danger:hover{background-color:#c0392b}
+    .btn-success{background-color:var(--secondary-color)}
+    .btn-success:hover{background-color:#27ae60}
+    .card{border:1px solid #ddd;border-radius:5px;padding:15px;margin-bottom:15px;background-color:#fff}
+    .card-header{font-weight:bold;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid #eee}
+    .tabs{display:flex;margin-bottom:20px;border-bottom:1px solid #ddd}
+    .tab{padding:10px 20px;cursor:pointer;background-color:#f1f1f1;border:1px solid #ddd;border-bottom:none;border-radius:5px 5px 0 0;margin-right:5px}
+    .tab.active{background-color:#fff;border-bottom:1px solid #fff;margin-bottom:-1px}
+    @media (max-width:768px){nav ul{flex-direction:column;align-items:center}nav ul li{margin:5px 0}.tabs{flex-wrap:wrap}.tab{margin-bottom:5px}}
+    .hint{font-size:.9rem;color:#555;margin:.5rem 0}
+  </style>
 </head>
-<body class="bg-gray-100 text-gray-800 leading-relaxed">
+<body>
+  <header>
+    <h1>نظام متابعة حفظ المتون - الكلاود (Google Firestore)</h1>
+    <p class="hint">📌 هذه النسخة تحفظ وتعرض البيانات للجميع عبر قاعدة بيانات سحابية. تأكد من ضبط <strong>firebaseConfig</strong> و<em>Security Rules</em>.</p>
+  </header>
 
-    <!-- Main application content -->
-    <div id="app" class="p-4 md:p-8">
-        <header class="bg-gray-900 text-white text-center p-6 rounded-lg shadow-lg mb-8">
-            <h1 class="text-3xl md:text-4xl font-bold">نظام متابعة حفظ المتون - الجامعة</h1>
-        </header>
-        
-        <nav class="bg-blue-600 rounded-lg shadow-lg mb-8 p-2">
-            <ul class="flex flex-col md:flex-row justify-center items-center">
-                <li><a href="#" onclick="showSection('students')" class="block py-2 px-4 md:mx-2 text-white font-semibold rounded-md hover:bg-blue-700 transition duration-300">إدارة الطلاب</a></li>
-                <li><a href="#" onclick="showSection('texts')" class="block py-2 px-4 md:mx-2 text-white font-semibold rounded-md hover:bg-blue-700 transition duration-300">إدارة المتون</a></li>
-                <li><a href="#" onclick="showSection('progress')" class="block py-2 px-4 md:mx-2 text-white font-semibold rounded-md hover:bg-blue-700 transition duration-300">تسجيل التقدم</a></li>
-            </ul>
-        </nav>
+  <nav>
+    <ul>
+      <li><a href="#" onclick="showSection('students')">إدارة الطلاب</a></li>
+      <li><a href="#" onclick="showSection('texts')">إدارة المتون</a></li>
+      <li><a href="#" onclick="showSection('progress')">تسجيل التقدم</a></li>
+      <li><a href="#" onclick="showSection('weekly')">التقارير الأسبوعية</a></li>
+      <li><a href="#" onclick="showSection('monthly')">التقارير الشهرية</a></li>
+    </ul>
+  </nav>
 
-        <main class="container mx-auto">
-            <!-- Student Management Section -->
-            <section id="students" class="section bg-white p-6 rounded-lg shadow-lg mb-6">
-                <div class="flex flex-col md:flex-row justify-between items-center mb-6 border-b-2 pb-4">
-                    <h2 class="text-2xl font-bold text-gray-700 mb-4 md:mb-0">إدارة الطلاب</h2>
-                    <div id="user-info" class="text-sm text-gray-500"></div>
-                </div>
-                
-                <div class="card bg-gray-50 p-6 rounded-lg border border-gray-200 mb-6">
-                    <div class="text-lg font-bold text-gray-700 mb-4">إضافة طالب جديد</div>
-                    <form id="addStudentForm" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <input type="text" id="studentName" placeholder="اسم الطالب" required class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <input type="text" id="studentCollege" placeholder="الكلية" required class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <input type="text" id="studentMajor" placeholder="التخصص" required class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <select id="studentLevel" required class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <option value="1">المستوى الأول</option>
-                            <option value="2">المستوى الثاني</option>
-                            <option value="3">المستوى الثالث</option>
-                            <option value="4">المستوى الرابع</option>
-                        </select>
-                        <button type="submit" class="col-span-1 md:col-span-2 lg:col-span-4 bg-green-500 text-white font-bold py-2 px-4 rounded-md hover:bg-green-600 transition duration-300">إضافة الطالب</button>
-                    </form>
-                </div>
-                
-                <div class="card bg-gray-50 p-6 rounded-lg border border-gray-200">
-                    <div class="text-lg font-bold text-gray-700 mb-4">قائمة الطلاب</div>
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full bg-white rounded-lg overflow-hidden shadow-sm">
-                            <thead class="bg-gray-200 text-gray-600">
-                                <tr>
-                                    <th class="py-3 px-4 text-center border-b-2">الاسم</th>
-                                    <th class="py-3 px-4 text-center border-b-2">الكلية</th>
-                                    <th class="py-3 px-4 text-center border-b-2">التخصص</th>
-                                    <th class="py-3 px-4 text-center border-b-2">المستوى</th>
-                                    <th class="py-3 px-4 text-center border-b-2">الإجراءات</th>
-                                </tr>
-                            </thead>
-                            <tbody id="studentsTableBody">
-                                <!-- Data will be loaded here by JavaScript -->
-                                <tr class="text-center"><td colspan="5" class="py-4 text-gray-500">جاري تحميل البيانات...</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </section>
-            
-            <!-- Text Management Section -->
-            <section id="texts" class="section bg-white p-6 rounded-lg shadow-lg mb-6 hidden">
-                <h2 class="text-2xl font-bold text-gray-700 mb-6 border-b-2 pb-4">إدارة المتون</h2>
-                <div class="tabs flex flex-wrap border-b border-gray-300 mb-6">
-                    <button class="tab p-3 cursor-pointer bg-gray-200 rounded-t-lg mx-1 transition duration-300 active" onclick="showTextTab('stage1')">المرحلة الأولى</button>
-                    <button class="tab p-3 cursor-pointer bg-gray-200 rounded-t-lg mx-1 transition duration-300" onclick="showTextTab('stage2')">المرحلة الثانية</button>
-                    <button class="tab p-3 cursor-pointer bg-gray-200 rounded-t-lg mx-1 transition duration-300" onclick="showTextTab('stage3')">المرحلة الثالثة</button>
-                    <button class="tab p-3 cursor-pointer bg-gray-200 rounded-t-lg mx-1 transition duration-300" onclick="showTextTab('stage4')">المرحلة الرابعة</button>
-                </div>
-                
-                <div id="stage1Texts" class="text-tab">
-                    <div class="card bg-gray-50 p-6 rounded-lg border border-gray-200 mb-6">
-                        <div class="text-lg font-bold text-gray-700 mb-4">إضافة متن جديد للمرحلة الأولى</div>
-                        <form id="addStage1TextForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <input type="text" id="stage1TextName" placeholder="اسم المتن" required class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <input type="number" id="stage1TextTotal" placeholder="العدد الكلي" required class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <button type="submit" class="col-span-1 md:col-span-2 bg-green-500 text-white font-bold py-2 px-4 rounded-md hover:bg-green-600 transition duration-300">إضافة المتن</button>
-                        </form>
-                    </div>
-                    
-                    <div class="card bg-gray-50 p-6 rounded-lg border border-gray-200">
-                        <div class="text-lg font-bold text-gray-700 mb-4">متون المرحلة الأولى</div>
-                        <div class="overflow-x-auto">
-                            <table class="min-w-full bg-white rounded-lg overflow-hidden shadow-sm">
-                                <thead class="bg-gray-200 text-gray-600">
-                                    <tr>
-                                        <th class="py-3 px-4 text-center border-b-2">اسم المتن</th>
-                                        <th class="py-3 px-4 text-center border-b-2">المجموع الكلي</th>
-                                        <th class="py-3 px-4 text-center border-b-2">الإجراءات</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="stage1TextsTableBody">
-                                    <!-- Data will be loaded here by JavaScript -->
-                                    <tr class="text-center"><td colspan="3" class="py-4 text-gray-500">جاري تحميل البيانات...</td></tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-                <!-- Other stages sections can be added here -->
-            </section>
+  <div class="container">
+    <!-- الطلاب -->
+    <section id="students" class="section">
+      <h2>إدارة الطلاب</h2>
+      <div class="card">
+        <div class="card-header">إضافة طالب جديد</div>
+        <form id="addStudentForm">
+          <div class="form-group">
+            <label for="studentName">اسم الطالب</label>
+            <input type="text" id="studentName" required />
+          </div>
+          <div class="form-group">
+            <label for="studentCollege">الكليّة</label>
+            <input type="text" id="studentCollege" required />
+          </div>
+          <div class="form-group">
+            <label for="studentMajor">التخصص</label>
+            <input type="text" id="studentMajor" required />
+          </div>
+          <div class="form-group">
+            <label for="studentLevel">المستوى</label>
+            <select id="studentLevel" required>
+              <option value="1">المستوى الأول</option>
+              <option value="2">المستوى الثاني</option>
+              <option value="3">المستوى الثالث</option>
+              <option value="4">المستوى الرابع</option>
+            </select>
+          </div>
+          <button type="submit" class="btn-success">إضافة الطالب</button>
+        </form>
+      </div>
 
-            <!-- Progress Recording Section -->
-            <section id="progress" class="section bg-white p-6 rounded-lg shadow-lg mb-6 hidden">
-                <h2 class="text-2xl font-bold text-gray-700 mb-6 border-b-2 pb-4">تسجيل التقدم في الحفظ</h2>
-                <div class="card bg-gray-50 p-6 rounded-lg border border-gray-200 mb-6">
-                    <form id="recordProgressForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <select id="progressStudent" required class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <option value="">-- اختر الطالب --</option>
-                        </select>
-                        <select id="progressStage" required onchange="loadStageTexts()" class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <option value="">-- اختر المرحلة --</option>
-                            <option value="1">المرحلة الأولى</option>
-                            <option value="2">المرحلة الثانية</option>
-                            <option value="3">المستوى الثالث</option>
-                            <option value="4">المستوى الرابع</option>
-                        </select>
-                        <select id="progressText" required class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <option value="">-- اختر المتن --</option>
-                        </select>
-                        <input type="number" id="progressAmount" placeholder="القدر المحفوظ (مكان الوقف)" required class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <input type="date" id="progressDate" required class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <button type="submit" class="col-span-1 md:col-span-2 bg-green-500 text-white font-bold py-2 px-4 rounded-md hover:bg-green-600 transition duration-300">تسجيل التقدم</button>
-                    </form>
-                </div>
-                
-                <div class="card bg-gray-50 p-6 rounded-lg border border-gray-200">
-                    <div class="text-lg font-bold text-gray-700 mb-4">بيانات التقدم في الحفظ</div>
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full bg-white rounded-lg overflow-hidden shadow-sm">
-                            <thead class="bg-gray-200 text-gray-600">
-                                <tr>
-                                    <th class="py-3 px-4 text-center border-b-2">اسم الطالب</th>
-                                    <th class="py-3 px-4 text-center border-b-2">المرحلة</th>
-                                    <th class="py-3 px-4 text-center border-b-2">المتن</th>
-                                    <th class="py-3 px-4 text-center border-b-2">القدر المحفوظ</th>
-                                    <th class="py-3 px-4 text-center border-b-2">المتبقي</th>
-                                    <th class="py-3 px-4 text-center border-b-2">التاريخ</th>
-                                </tr>
-                            </thead>
-                            <tbody id="progressTableBody">
-                                <!-- Data will be loaded here by JavaScript -->
-                                <tr class="text-center"><td colspan="6" class="py-4 text-gray-500">جاري تحميل البيانات...</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </section>
+      <div class="card">
+        <div class="card-header">قائمة الطلاب</div>
+        <table id="studentsTable">
+          <thead>
+            <tr>
+              <th>الاسم</th>
+              <th>الكليّة</th>
+              <th>التخصص</th>
+              <th>المستوى</th>
+              <th>الإجراءات</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
 
-            <!-- Reports are not implemented in this version -->
-            <section id="weekly" class="section bg-white p-6 rounded-lg shadow-lg mb-6 hidden">
-                <h2 class="text-2xl font-bold text-gray-700 mb-6 border-b-2 pb-4">التقارير الأسبوعية</h2>
-                <div class="text-center py-12 text-gray-500">
-                    هذه الميزة سيتم تطويرها في إصدارات مستقبلية.
-                </div>
-            </section>
-            <section id="monthly" class="section bg-white p-6 rounded-lg shadow-lg mb-6 hidden">
-                <h2 class="text-2xl font-bold text-gray-700 mb-6 border-b-2 pb-4">التقارير الشهرية</h2>
-                <div class="text-center py-12 text-gray-500">
-                    هذه الميزة سيتم تطويرها في إصدارات مستقبلية.
-                </div>
-            </section>
-        </main>
-    </div>
+    <!-- المتون -->
+    <section id="texts" class="section">
+      <h2>إدارة المتون</h2>
+      <div class="tabs">
+        <div class="tab active" data-stage="1" onclick="showTextTab('stage1', event)">المرحلة الأولى</div>
+        <div class="tab" data-stage="2" onclick="showTextTab('stage2', event)">المرحلة الثانية</div>
+        <div class="tab" data-stage="3" onclick="showTextTab('stage3', event)">المرحلة الثالثة</div>
+        <div class="tab" data-stage="4" onclick="showTextTab('stage4', event)">المرحلة الرابعة</div>
+      </div>
 
-    <!-- Custom Modal for Confirmation/Alerts -->
-    <div id="customModal" class="modal fixed inset-0 flex items-center justify-center p-4 bg-gray-900 bg-opacity-75 z-50 hidden">
-        <div class="modal-content bg-white rounded-lg p-6 shadow-xl w-full max-w-sm transform scale-95 opacity-0">
-            <p id="modalMessage" class="text-lg font-semibold text-gray-800 mb-4"></p>
-            <div id="modalButtons" class="flex justify-end gap-2">
-                <button id="modalConfirmBtn" class="bg-red-500 text-white font-bold py-2 px-4 rounded-md hover:bg-red-600 transition duration-300">تأكيد</button>
-                <button id="modalCancelBtn" class="bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-md hover:bg-gray-400 transition duration-300">إلغاء</button>
+      <!-- قالب مرحلة عام باستخدام data-stage="1..4" -->
+      <div id="stage1Texts" class="text-tab" data-stage="1">
+        <div class="card">
+          <div class="card-header">إضافة متن جديد للمرحلة الأولى</div>
+          <form class="addTextForm" data-stage="1">
+            <div class="form-group">
+              <label>اسم المتن</label>
+              <input type="text" class="textName" required />
             </div>
+            <div class="form-group">
+              <label>العدد الكلي للصفحات/الأجزاء</label>
+              <input type="number" min="1" class="textTotal" required />
+            </div>
+            <button type="submit" class="btn-success">إضافة المتن</button>
+          </form>
         </div>
-    </div>
+        <div class="card">
+          <div class="card-header">متون المرحلة الأولى</div>
+          <table class="textsTable" id="stage1TextsTable">
+            <thead>
+              <tr>
+                <th>اسم المتن</th>
+                <th>المجموع الكلي</th>
+                <th>الإجراءات</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
 
-    <script type="module">
-        // Import Firebase SDKs
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+      <!-- سننسخ نفس البنية للمراحل الأخرى -->
+      <div id="stage2Texts" class="text-tab" data-stage="2" style="display:none">
+        <div class="card">
+          <div class="card-header">إضافة متن جديد للمرحلة الثانية</div>
+          <form class="addTextForm" data-stage="2">
+            <div class="form-group">
+              <label>اسم المتن</label>
+              <input type="text" class="textName" required />
+            </div>
+            <div class="form-group">
+              <label>العدد الكلي للصفحات/الأجزاء</label>
+              <input type="number" min="1" class="textTotal" required />
+            </div>
+            <button type="submit" class="btn-success">إضافة المتن</button>
+          </form>
+        </div>
+        <div class="card">
+          <div class="card-header">متون المرحلة الثانية</div>
+          <table class="textsTable" id="stage2TextsTable">
+            <thead>
+              <tr>
+                <th>اسم المتن</th>
+                <th>المجموع الكلي</th>
+                <th>الإجراءات</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
 
-        // Global variables provided by the Canvas environment
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+      <div id="stage3Texts" class="text-tab" data-stage="3" style="display:none">
+        <div class="card">
+          <div class="card-header">إضافة متن جديد للمرحلة الثالثة</div>
+          <form class="addTextForm" data-stage="3">
+            <div class="form-group">
+              <label>اسم المتن</label>
+              <input type="text" class="textName" required />
+            </div>
+            <div class="form-group">
+              <label>العدد الكلي للصفحات/الأجزاء</label>
+              <input type="number" min="1" class="textTotal" required />
+            </div>
+            <button type="submit" class="btn-success">إضافة المتن</button>
+          </form>
+        </div>
+        <div class="card">
+          <div class="card-header">متون المرحلة الثالثة</div>
+          <table class="textsTable" id="stage3TextsTable">
+            <thead>
+              <tr>
+                <th>اسم المتن</th>
+                <th>المجموع الكلي</th>
+                <th>الإجراءات</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
 
-        let db, auth;
-        let userId;
+      <div id="stage4Texts" class="text-tab" data-stage="4" style="display:none">
+        <div class="card">
+          <div class="card-header">إضافة متن جديد للمرحلة الرابعة</div>
+          <form class="addTextForm" data-stage="4">
+            <div class="form-group">
+              <label>اسم المتن</label>
+              <input type="text" class="textName" required />
+            </div>
+            <div class="form-group">
+              <label>العدد الكلي للصفحات/الأجزاء</label>
+              <input type="number" min="1" class="textTotal" required />
+            </div>
+            <button type="submit" class="btn-success">إضافة المتن</button>
+          </form>
+        </div>
+        <div class="card">
+          <div class="card-header">متون المرحلة الرابعة</div>
+          <table class="textsTable" id="stage4TextsTable">
+            <thead>
+              <tr>
+                <th>اسم المتن</th>
+                <th>المجموع الكلي</th>
+                <th>الإجراءات</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
 
-        // --- Firebase Initialization and Authentication ---
-        async function initFirebase() {
-            try {
-                const app = initializeApp(firebaseConfig);
-                db = getFirestore(app);
-                auth = getAuth(app);
+    <!-- تسجيل التقدم -->
+    <section id="progress" class="section">
+      <h2>تسجيل التقدم في الحفظ</h2>
+      <div class="card">
+        <form id="recordProgressForm">
+          <div class="form-group">
+            <label for="progressStudent">اختر الطالب</label>
+            <select id="progressStudent" required>
+              <option value="">-- اختر الطالب --</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="progressStage">المرحلة</label>
+            <select id="progressStage" required>
+              <option value="">-- اختر المرحلة --</option>
+              <option value="1">المرحلة الأولى</option>
+              <option value="2">المرحلة الثانية</option>
+              <option value="3">المرحلة الثالثة</option>
+              <option value="4">المرحلة الرابعة</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="progressText">المتن</label>
+            <select id="progressText" required>
+              <option value="">-- اختر المتن --</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="progressAmount">القدر المحفوظ (مكان الوقف)</label>
+            <input type="number" id="progressAmount" required />
+          </div>
+          <div class="form-group">
+            <label for="progressDate">تاريخ التسميع</label>
+            <input type="date" id="progressDate" required />
+          </div>
+          <button type="submit" class="btn-success">تسجيل التقدم</button>
+        </form>
+        <p class="hint">سيتم التحقق تلقائيًا من عدم تجاوز القدر للمجموع الكلي للمتن.</p>
+      </div>
+    </section>
 
-                // Sign in with custom token if available, otherwise anonymously
-                if (initialAuthToken) {
-                    await signInWithCustomToken(auth, initialAuthToken);
-                } else {
-                    await signInAnonymously(auth);
-                }
-                
-                onAuthStateChanged(auth, (user) => {
-                    if (user) {
-                        userId = user.uid;
-                        document.getElementById('user-info').textContent = `ID: ${userId}`;
-                        console.log("Firebase initialized and authenticated successfully.");
-                        // Start rendering after auth state is confirmed
-                        showSection('students');
-                        renderAllTables();
-                    } else {
-                        console.error("User is not authenticated.");
-                    }
-                });
+    <!-- تقارير (تجهيز للنسخة القادمة) -->
+    <section id="weekly" class="section">
+      <h2>التقارير الأسبوعية</h2>
+      <div class="card">
+        <div class="form-group">
+          <label for="weeklyReportWeek">اختر الأسبوع</label>
+          <input type="week" id="weeklyReportWeek" />
+        </div>
+        <p class="hint">❗️ ملاحظة: تجميع التقارير سيتم ربطه لاحقًا باستعلامات Firestore حسب التواريخ.</p>
+      </div>
+      <div class="card">
+        <div class="card-header">التقرير الأسبوعي</div>
+        <table id="weeklyReportTable">
+          <thead>
+            <tr>
+              <th>اسم الطالب</th>
+              <th>الكليّة</th>
+              <th>التخصص</th>
+              <th>أيام التسميع</th>
+              <th>أيام عدم التسميع</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
 
-            } catch (error) {
-                console.error("Error initializing Firebase:", error);
-            }
-        }
+    <section id="monthly" class="section">
+      <h2>التقارير الشهرية</h2>
+      <div class="card">
+        <div class="form-group">
+          <label for="monthlyReportMonth">اختر الشهر</label>
+          <input type="month" id="monthlyReportMonth" />
+        </div>
+        <p class="hint">❗️ ملاحظة: سيتم تفعيل التجميع الشهري لاحقًا باستعلامات زمنية من Firestore.</p>
+      </div>
+      <div class="card">
+        <div class="card-header">التقرير الشهري</div>
+        <table id="monthlyReportTable">
+          <thead>
+            <tr>
+              <th>اسم الطالب</th>
+              <th>الكليّة</th>
+              <th>التخصص</th>
+              <th>أيام التسميع</th>
+              <th>أيام عدم التسميع</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
 
-        // --- Data Retrieval with Real-time Listeners (onSnapshot) ---
-        function renderAllTables() {
-            if (!db || !userId) {
-                console.warn("Database or user ID not ready. Skipping render.");
-                return;
-            }
+  <!-- Firebase + منطق التطبيق -->
+  <script type="module">
+    /**
+     * 1) ألصِق إعدادات Firebase لمشروعك هنا (من لوحة Firebase > Project Settings > SDK setup & config)
+     * ⚠️ لا تشارك المفاتيح الحساسة علنًا. يُنصح بضبط قواعد الأمان.
+     */
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import {
+      getFirestore, collection, addDoc, getDocs, onSnapshot,
+      deleteDoc, doc, query, where, orderBy, getDoc
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-            // Real-time listener for students table
-            const studentsCol = collection(db, `/artifacts/${appId}/public/data/students`);
-            onSnapshot(studentsCol, (snapshot) => {
-                const students = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                renderStudentsTable(students);
-                loadStudentsDropdown(students);
-            });
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_AUTH_DOMAIN",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_STORAGE_BUCKET",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
 
-            // Real-time listener for texts tables
-            const textsCol = collection(db, `/artifacts/${appId}/public/data/texts`);
-            onSnapshot(textsCol, (snapshot) => {
-                const texts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                renderTextsTables(texts);
-            });
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
 
-            // New real-time listener for progress table
-            const progressCol = collection(db, `/artifacts/${appId}/public/data/progress`);
-            onSnapshot(progressCol, async (snapshot) => {
-                const progresses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                await renderProgressTable(progresses);
-            });
-        }
-        
-        // --- Helper Functions ---
-        
-        // Displays a custom modal for confirmations or alerts
-        function showModal(message, isConfirm = false) {
-            return new Promise((resolve) => {
-                const modal = document.getElementById('customModal');
-                const msg = document.getElementById('modalMessage');
-                const confirmBtn = document.getElementById('modalConfirmBtn');
-                const cancelBtn = document.getElementById('modalCancelBtn');
+    // المراجع
+    const studentsCol = collection(db, 'students');
+    const textsCol = collection(db, 'texts'); // سنخزن: { name, total, stage }
+    const progressCol = collection(db, 'progress'); // { studentId, stage, textId, amount, remaining, date }
 
-                msg.textContent = message;
-                modal.classList.remove('hidden');
-                modal.querySelector('.modal-content').classList.remove('animate-fade-out');
-                modal.querySelector('.modal-content').classList.add('animate-fade-in');
+    // حالة واجهة المستخدم
+    const studentsState = new Map(); // id -> data
+    const textsState = new Map(); // id -> data
 
-                if (isConfirm) {
-                    confirmBtn.style.display = 'inline-block';
-                    cancelBtn.style.display = 'inline-block';
-                } else {
-                    confirmBtn.style.display = 'none';
-                    cancelBtn.style.display = 'none';
-                }
+    // ====== أدوات عامة للواجهة ======
+    function showSection(sectionId){
+      document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+      document.getElementById(sectionId).classList.add('active');
+      if(sectionId==='students'){ renderStudentsTable(); }
+      if(sectionId==='texts'){ /* الجداول تتحدث آليًا عبر onSnapshot */ }
+      if(sectionId==='progress'){ loadStudentsDropdown(); }
+    }
 
-                const handleConfirm = () => {
-                    modal.querySelector('.modal-content').classList.add('animate-fade-out');
-                    setTimeout(() => { modal.classList.add('hidden'); }, 300);
-                    resolve(true);
-                };
+    function showTextTab(stageId, ev){
+      document.querySelectorAll('.text-tab').forEach(tab=>tab.style.display='none');
+      document.getElementById(stageId+'Texts').style.display='block';
+      document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+      if(ev) ev.target.classList.add('active');
+      renderTextsTables();
+    }
 
-                const handleCancel = () => {
-                    modal.querySelector('.modal-content').classList.add('animate-fade-out');
-                    setTimeout(() => { modal.classList.add('hidden'); }, 300);
-                    resolve(false);
-                };
+    // ====== الطلاب ======
+    const addStudentForm = document.getElementById('addStudentForm');
+    addStudentForm.addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      const student = {
+        name: document.getElementById('studentName').value.trim(),
+        college: document.getElementById('studentCollege').value.trim(),
+        major: document.getElementById('studentMajor').value.trim(),
+        level: document.getElementById('studentLevel').value
+      };
+      if(!student.name) return alert('الاسم مطلوب');
+      await addDoc(studentsCol, student);
+      addStudentForm.reset();
+      alert('تم إضافة الطالب بنجاح!');
+    });
 
-                confirmBtn.onclick = handleConfirm;
-                cancelBtn.onclick = handleCancel;
-
-                if (!isConfirm) {
-                    setTimeout(handleCancel, 2000); // Auto-dismiss after 2 seconds for alerts
-                }
-            });
-        }
-
-        // Toggles visibility of application sections
-        function showSection(sectionId) {
-            document.querySelectorAll('.section').forEach(section => {
-                section.classList.add('hidden');
-            });
-            document.getElementById(sectionId).classList.remove('hidden');
-        }
-
-        // Toggles visibility of text tabs
-        function showTextTab(stageId) {
-            document.querySelectorAll('.text-tab').forEach(tab => {
-                tab.classList.add('hidden');
-            });
-            document.getElementById(stageId + 'Texts').classList.remove('hidden');
-
-            document.querySelectorAll('.tab').forEach(tab => {
-                tab.classList.remove('active', 'bg-white', 'border-white');
-                tab.classList.add('bg-gray-200');
-            });
-
-            const activeTab = event.target;
-            activeTab.classList.add('active', 'bg-white', 'border-white');
-            activeTab.classList.remove('bg-gray-200');
-        }
-
-        // --- Student Management Functions ---
-        document.getElementById('addStudentForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            const newStudent = {
-                name: document.getElementById('studentName').value,
-                college: document.getElementById('studentCollege').value,
-                major: document.getElementById('studentMajor').value,
-                level: document.getElementById('studentLevel').value,
-            };
-
-            const studentsCol = collection(db, `/artifacts/${appId}/public/data/students`);
-            await addDoc(studentsCol, newStudent);
-            this.reset();
-            showModal('تمت إضافة الطالب بنجاح!');
+    function renderStudentsTable(){
+      const tbody = document.querySelector('#studentsTable tbody');
+      tbody.innerHTML = '';
+      [...studentsState.entries()].forEach(([id, student])=>{
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${student.name}</td>
+          <td>${student.college}</td>
+          <td>${student.major}</td>
+          <td>المستوى ${student.level}</td>
+          <td><button class="btn-danger" data-del-student="${id}">حذف</button></td>`;
+        tbody.appendChild(tr);
+      });
+      tbody.querySelectorAll('[data-del-student]').forEach(btn=>{
+        btn.addEventListener('click', async ()=>{
+          const id = btn.getAttribute('data-del-student');
+          if(confirm('هل أنت متأكد من حذف هذا الطالب؟')){
+            await deleteDoc(doc(db, 'students', id));
+          }
         });
+      });
+    }
 
-        function renderStudentsTable(students) {
-            const tbody = document.getElementById('studentsTableBody');
-            tbody.innerHTML = '';
-            if (students.length === 0) {
-                tbody.innerHTML = `<tr class="text-center"><td colspan="5" class="py-4 text-gray-500">لا يوجد طلاب مسجلون.</td></tr>`;
-                return;
+    // متابعة حيّة لقائمة الطلاب
+    onSnapshot(studentsCol, (snap)=>{
+      studentsState.clear();
+      snap.forEach(d=>studentsState.set(d.id, d.data()));
+      renderStudentsTable();
+      loadStudentsDropdown();
+    });
+
+    // ====== المتون ======
+    // نماذج الإضافة لكل مرحلة
+    document.querySelectorAll('.addTextForm').forEach(form=>{
+      form.addEventListener('submit', async (e)=>{
+        e.preventDefault();
+        const stage = form.getAttribute('data-stage');
+        const name = form.querySelector('.textName').value.trim();
+        const total = parseInt(form.querySelector('.textTotal').value, 10);
+        if(!name || !total || total<1) return alert('أدخل اسم المتن وعددًا صحيحًا');
+        await addDoc(textsCol, { name, total, stage });
+        form.reset();
+        alert('تم إضافة المتن بنجاح!');
+      });
+    });
+
+    function renderTextsTables(){
+      // امسح الجداول الأربعة ثم املأ حسب الحالة
+      for(let s=1; s<=4; s++){
+        const tbody = document.querySelector(`#stage${s}TextsTable tbody`);
+        if(!tbody) continue;
+        tbody.innerHTML='';
+        [...textsState.entries()] // [id, data]
+          .filter(([_, t])=> String(t.stage)===String(s))
+          .forEach(([id, t])=>{
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+              <td>${t.name}</td>
+              <td>${t.total}</td>
+              <td><button class="btn-danger" data-del-text="${id}">حذف</button></td>`;
+            tbody.appendChild(tr);
+          });
+        tbody.querySelectorAll('[data-del-text]').forEach(btn=>{
+          btn.addEventListener('click', async ()=>{
+            const id = btn.getAttribute('data-del-text');
+            if(confirm('هل أنت متأكد من حذف هذا المتن؟')){
+              await deleteDoc(doc(db,'texts',id));
             }
-            students.forEach(student => {
-                const tr = document.createElement('tr');
-                tr.className = 'text-center border-b hover:bg-gray-50';
-                tr.innerHTML = `
-                    <td class="py-3 px-4">${student.name}</td>
-                    <td class="py-3 px-4">${student.college}</td>
-                    <td class="py-3 px-4">${student.major}</td>
-                    <td class="py-3 px-4">المستوى ${student.level}</td>
-                    <td class="py-3 px-4">
-                        <button class="bg-red-500 text-white font-bold py-1 px-3 rounded-md hover:bg-red-600 transition duration-300" onclick="deleteStudent('${student.id}')">حذف</button>
-                    </td>
-                `;
-                tbody.appendChild(tr);
-            });
-        }
-
-        async function deleteStudent(id) {
-            const confirmed = await showModal('هل أنت متأكد من حذف هذا الطالب؟', true);
-            if (confirmed) {
-                const docRef = doc(db, `/artifacts/${appId}/public/data/students`, id);
-                await deleteDoc(docRef);
-                showModal('تم حذف الطالب.');
-            }
-        }
-
-        // --- Text Management Functions ---
-        document.getElementById('addStage1TextForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            const newText = {
-                stage: 1,
-                name: document.getElementById('stage1TextName').value,
-                total: parseInt(document.getElementById('stage1TextTotal').value),
-            };
-
-            const textsCol = collection(db, `/artifacts/${appId}/public/data/texts`);
-            await addDoc(textsCol, newText);
-            this.reset();
-            showModal('تمت إضافة المتن بنجاح!');
+          });
         });
+      }
+    }
 
-        function renderTextsTables(texts) {
-            const stage1Texts = texts.filter(text => text.stage === 1);
-            const stage1Tbody = document.getElementById('stage1TextsTableBody');
-            renderTextTable(stage1Tbody, stage1Texts);
-            // Add other stages here if you expand the app
-        }
+    // متابعة حيّة للمتون
+    onSnapshot(textsCol, (snap)=>{
+      textsState.clear();
+      snap.forEach(d=>textsState.set(d.id, d.data()));
+      renderTextsTables();
+      // حدّث قائمة المتون في نموذج التقدم إن كانت مرحلة مختارة
+      populateTextsDropdown();
+    });
 
-        function renderTextTable(tbody, texts) {
-            tbody.innerHTML = '';
-            if (texts.length === 0) {
-                tbody.innerHTML = `<tr class="text-center"><td colspan="3" class="py-4 text-gray-500">لا يوجد متون مسجلة.</td></tr>`;
-                return;
-            }
-            texts.forEach(text => {
-                const tr = document.createElement('tr');
-                tr.className = 'text-center border-b hover:bg-gray-50';
-                tr.innerHTML = `
-                    <td class="py-3 px-4">${text.name}</td>
-                    <td class="py-3 px-4">${text.total}</td>
-                    <td class="py-3 px-4">
-                        <button class="bg-red-500 text-white font-bold py-1 px-3 rounded-md hover:bg-red-600 transition duration-300" onclick="deleteText('${text.id}')">حذف</button>
-                    </td>
-                `;
-                tbody.appendChild(tr);
-            });
-        }
+    // ====== تسجيل التقدم ======
+    function loadStudentsDropdown(){
+      const select = document.getElementById('progressStudent');
+      if(!select) return;
+      const current = select.value;
+      select.innerHTML = '<option value="">-- اختر الطالب --</option>';
+      [...studentsState.entries()].forEach(([id, s])=>{
+        const opt = document.createElement('option');
+        opt.value = id; opt.textContent = s.name;
+        select.appendChild(opt);
+      });
+      // احتفظ بالاختيار إن أمكن
+      if(current) select.value = current;
+      populateTextsDropdown();
+    }
 
-        async function deleteText(id) {
-            const confirmed = await showModal('هل أنت متأكد من حذف هذا المتن؟', true);
-            if (confirmed) {
-                const docRef = doc(db, `/artifacts/${appId}/public/data/texts`, id);
-                await deleteDoc(docRef);
-                showModal('تم حذف المتن.');
-            }
-        }
+    const progressStageSel = document.getElementById('progressStage');
+    const progressTextSel = document.getElementById('progressText');
 
-        // --- Progress Recording Functions ---
-        function loadStudentsDropdown(students) {
-            const select = document.getElementById('progressStudent');
-            select.innerHTML = '<option value="">-- اختر الطالب --</option>';
-            students.forEach(student => {
-                const option = document.createElement('option');
-                option.value = student.id;
-                option.textContent = student.name;
-                select.appendChild(option);
-            });
-        }
-
-        async function loadStageTexts() {
-            const stage = document.getElementById('progressStage').value;
-            const select = document.getElementById('progressText');
-            select.innerHTML = '<option value="">-- اختر المتن --</option>';
-
-            if (stage && db) {
-                const textsCol = collection(db, `/artifacts/${appId}/public/data/texts`);
-                const q = query(textsCol, where("stage", "==", parseInt(stage)));
-                const textsSnapshot = await getDocs(q);
-                const texts = textsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                texts.forEach(text => {
-                    const option = document.createElement('option');
-                    option.value = text.id;
-                    option.textContent = text.name;
-                    option.setAttribute('data-total', text.total);
-                    select.appendChild(option);
-                });
-            }
-        }
-
-        document.getElementById('recordProgressForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            const studentId = document.getElementById('progressStudent').value;
-            const stage = document.getElementById('progressStage').value;
-            const textSelect = document.getElementById('progressText');
-            const textId = textSelect.value;
-            const amount = parseInt(document.getElementById('progressAmount').value);
-            const date = document.getElementById('progressDate').value;
-            
-            const selectedOption = textSelect.selectedOptions[0];
-            const textTotal = parseInt(selectedOption.getAttribute('data-total'));
-
-            if (amount > textTotal) {
-                await showModal('القدر المحفوظ لا يمكن أن يكون أكبر من المجموع الكلي للمتن!');
-                return;
-            }
-            
-            const newProgress = {
-                studentId,
-                stage,
-                textId,
-                amount,
-                remaining: textTotal - amount,
-                date
-            };
-
-            const progressCol = collection(db, `/artifacts/${appId}/public/data/progress`);
-            await addDoc(progressCol, newProgress);
-            this.reset();
-            showModal('تم تسجيل التقدم بنجاح!');
+    function populateTextsDropdown(){
+      if(!progressStageSel || !progressTextSel) return;
+      const stage = progressStageSel.value;
+      progressTextSel.innerHTML = '<option value="">-- اختر المتن --</option>';
+      if(!stage) return;
+      [...textsState.entries()]
+        .filter(([_, t])=> String(t.stage)===String(stage))
+        .forEach(([id, t])=>{
+          const opt = document.createElement('option');
+          opt.value = id; opt.textContent = t.name; opt.dataset.total = t.total;
+          progressTextSel.appendChild(opt);
         });
+    }
 
-        async function renderProgressTable(progresses) {
-            const tbody = document.getElementById('progressTableBody');
-            tbody.innerHTML = '';
-            if (progresses.length === 0) {
-                tbody.innerHTML = `<tr class="text-center"><td colspan="6" class="py-4 text-gray-500">لا يوجد بيانات تقدم مسجلة.</td></tr>`;
-                return;
-            }
+    progressStageSel.addEventListener('change', populateTextsDropdown);
 
-            // Get student and text data to display names instead of IDs
-            const studentsCol = collection(db, `/artifacts/${appId}/public/data/students`);
-            const textsCol = collection(db, `/artifacts/${appId}/public/data/texts`);
-            
-            const [studentsSnapshot, textsSnapshot] = await Promise.all([
-                getDocs(studentsCol),
-                getDocs(textsCol)
-            ]);
+    document.getElementById('recordProgressForm').addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      const studentId = document.getElementById('progressStudent').value;
+      const stage = document.getElementById('progressStage').value;
+      const textId = document.getElementById('progressText').value;
+      const amount = parseInt(document.getElementById('progressAmount').value, 10);
+      const date = document.getElementById('progressDate').value; // YYYY-MM-DD
+      if(!studentId || !stage || !textId || !amount || !date) return alert('أكمل جميع الحقول');
+      const total = parseInt(progressTextSel.selectedOptions[0].dataset.total, 10);
+      if(amount>total) return alert('القدر المحفوظ لا يمكن أن يكون أكبر من المجموع الكلي للمتن!');
+      const remaining = total - amount;
+      await addDoc(progressCol, { studentId, stage, textId, amount, remaining, date });
+      e.target.reset();
+      alert('تم تسجيل التقدم بنجاح!');
+    });
 
-            const studentsMap = new Map(studentsSnapshot.docs.map(doc => [doc.id, doc.data().name]));
-            const textsMap = new Map(textsSnapshot.docs.map(doc => [doc.id, doc.data().name]));
+    // ====== بدء التشغيل ======
+    document.addEventListener('DOMContentLoaded', ()=>{
+      showSection('students');
+      showTextTab('stage1');
+    });
+  </script>
 
-            progresses.forEach(progress => {
-                const tr = document.createElement('tr');
-                tr.className = 'text-center border-b hover:bg-gray-50';
-                tr.innerHTML = `
-                    <td class="py-3 px-4">${studentsMap.get(progress.studentId) || 'غير معروف'}</td>
-                    <td class="py-3 px-4">المرحلة ${progress.stage}</td>
-                    <td class="py-3 px-4">${textsMap.get(progress.textId) || 'غير معروف'}</td>
-                    <td class="py-3 px-4">${progress.amount}</td>
-                    <td class="py-3 px-4">${progress.remaining}</td>
-                    <td class="py-3 px-4">${progress.date}</td>
-                `;
-                tbody.appendChild(tr);
-            });
-        }
-
-        // Initialize the app on page load
-        window.onload = initFirebase;
-    </script>
+  <!-- تلميحات أمان Firestore (للتنفيذ من لوحة التحكم):
+  rules_version = '2';
+  service cloud.firestore {
+    match /databases/{database}/documents {
+      // 👇 للسماح العام للقراءة والكتابة أثناء التطوير فقط (غير آمن للإنتاج)
+      match /{document=**} {
+        allow read, write: if true;
+      }
+      // للإنتاج، استخدم مصادقة وتحقق من الملكية والأدوار.
+    }
+  }
+  -->
 </body>
 </html>
